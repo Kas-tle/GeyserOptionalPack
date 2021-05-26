@@ -3,10 +3,16 @@
    * [Armor stands](#Armor-stands)
       * [Part visibility and rotation encoding](#Part-visibility-and-rotation-encoding)
       * [Geometry and attachables](#Geometry-and-attachables)
+   * [Illusioners](#Illusioners)
    * [Iron golems](#Iron-golems)
       * [Cracking](#Cracking)
       * [Materials](#Materials)
       * [Render controller](Render-controllers)
+   * [Killer bunnies](#Killer-bunnies)
+   * [Offhand Animation](#Offhand-animation)
+   * [Particles](#Particles)
+      * [Sweep Attack](#Sweep-attack)
+   * [Player skin parts](#Player-skin-parts)
    * [Shulkers](#Shulkers)
    * [Spectral arrow entities](#Spectral-arrow-entities)
    * [Killer bunnies](#Killer-bunnies)
@@ -107,6 +113,29 @@ In order to utilize multiple textures, a render controller containing a texture 
 
 The trinary operator ensures that even if `max_health`, defined at 100, is overflowed, the expression will never produce a value outside the range of 0-3. As all data is derived resource pack side, this addition requires no modification by the server (though `query.is_bribed` enables the feature). The textures required for this to display can be retrieved during the build process.
 
+### Illusioners
+
+The illusioner does not exist in Bedrock Edition. Full implementation, however, would require more than a simple texture swap. This is due to the illusioner's special attack, which creates four duplicate false illusioners, which lack a hit box. The actual illusioner remains invisible during this attack. Implementing this would likely be possible from a technical perspective, but it would require either some kind of helper entity attached to the illusioner by Geyser, such as an invisible armor stand, or the removal of invisibility during the illusioner's special attack. The former would be preferable, as it would maintain some degree of functionality for users without the pack.
+
+Currently, the optional pack uses a render controller to perform a simple texture swap on the illusioner. This is accomplished by replacing the evocation illager with the illusioner when the evocation illager returns true for the Molang query `q.is_bribed`. The following texture array is defined in the render controller:
+
+```json
+{
+  "arrays": {
+    "textures": {
+      "Array.skins": [
+        "Texture.default",
+        "Texture.illusioner"
+      ]
+    }
+  }
+}
+```
+
+The position used in the array for the texture is then defined by `Array.skins[q.is_bribed]`.
+
+The geometry of the evoker was also slightly modified to include the hat of the illusioner. Since Bedrock edition uses the textures of Java edition for all illagers, and the evoker has an unused hat on its Java edition texture, the render controller is also utilized to hide the the render controller is set to hide the helmet layer unless `q.is_bribed` is true.
+
 ### Killer bunnies
 
 The killer bunny does not exist in Bedrock Edition. Nonetheless, this is primarily a simple texture swap. The "caerbannog" texture is the name of the texture in Java Edition, so that name has been used for consistency. This texture is added to the pack and the rabbit entity definition file. In order to construct the Molang query, the "Toast" rabbit must also be considered. In the event a rabbit is named "Toast", the texture is always overridden as the texture "Toast", including in the case of the killer bunny. Therefore, the query to select the texture is constructed with `q.is_bribed` being determined by Geyser:
@@ -118,6 +147,72 @@ The killer bunny does not exist in Bedrock Edition. Nonetheless, this is primari
 ```
 
 The texture required for this to be displayed can be retrieved during the build process.
+
+### Offhand Animation
+
+Both Java Edition and Bedrock Edition have offhand support, though Bedrock is very limited in its support. This includes the offhand attack animation. However, Bedrock has support for both custom animations and triggering custom animations from the server using the [AnimateEntityPacket](https://wiki.vg/Bedrock_Protocol#Animate_Entity). Whenever the server indicates that a player entity has swung their offhand, Geyser will indicate that Bedrock should play the offhand animation.
+
+### Particles
+
+The pack replaces many particles that are not displayed for various reasons. Some cannot be displayed due to Bedrock's lack of ability to spawn particles with data from required builtin variables. Others simply do not exist in Bedrock edition. The table below summarizes the particle changes implemented by this pack.
+
+|   Java (`minecraft:`)   |  Bedrock (`minecraft:`) | Optional Pack (`geyseropt:`) |                                           Notes                                          |
+|:-----------------------:|:-----------------------:|:----------------------------:|:----------------------------------------------------------------------------------------:|
+|          `ash`          |            -            |             `ash`            |                              Not present in Bedrock Edition                              |
+|        `barrier`        |            -            |           `barrier`          |                     Present in Bedrock Edition, but not as a particle                    |
+|         `bubble`        |  `basic_bubble_manual`  |               -              | Modified version of the basic_bubble_manual particle is used to spawn in all block types |
+|     `crimson_spore`     |            -            |        `crimson_spore`       |                              Not present in Bedrock Edition                              |
+|    `damage_indicator`   |            -            |      `damage_indicator`      |                              Not present in Bedrock Edition                              |
+|     `enchanted_hit`     |            -            |    `enchanted_hit_single`    |                              Not present in Bedrock Edition                              |
+|            -            |            -            |   `enchanted_hit_multiple`   |                  Used for playing multiple scattered particles on attack                 |
+|         `flash`         |            -            |            `flash`           |                              Not present in Bedrock Edition                              |
+|     `landing_honey`     |            -            |        `landing_honey`       |                              Not present in Bedrock Edition                              |
+|      `landing_lava`     |            -            |        `landing_lava`        |                              Not present in Bedrock Edition                              |
+| `landing_obsidian_tear` |            -            |    `landing_obsidian_tear`   |                              Not present in Bedrock Edition                              |
+|        `nautilus`       |            -            |          `nautilus`          |                              Not present in Bedrock Edition                              |
+|         `sneeze`        |            -            |           `sneeze`           |  Part of Bedrock Edition as a variant of redstone dust (local use only in optional pack) |
+|      `sweep_attack`     |            -            |        `sweep_attack`        |                              Not present in Bedrock Edition                              |
+|       `underwater`      |            -            |         `underwater`         |                              Not present in Bedrock Edition                              |
+|      `warped_spore`     |            -            |        `warped_spore`        |                              Not present in Bedrock Edition                              |
+|       `white_ash`       |            -            |          `white_ash`         |                              Not present in Bedrock Edition                              |
+
+#### Sweep attack
+
+Of note, the texture for the sweep attack particle is built on the CI using [Imagemagick](https://imagemagick.org/script/index.php). This creates what is effectively a sprite sheet, and then the UV of the particle is animated from the particle definition. The UV animation in the particle definition is defined as follows:
+
+```jsonc
+{
+  "uv": {
+		"texture_width": 32, // defines texture width for UV purposes
+		"texture_height": 256, // defines texture height for UV purpose
+		"flipbook": {
+			"base_UV": [0, 0], // notes the point on the UV map at which to start
+			"size_UV": [32, 32], // notes the size of the UV emanating from the [+X, +Y] direction of the base_UV point
+			"step_UV": [0, 32], // defines the value by which the UV will be translated on each step, effectively our frame size
+			"max_frame": 8, // defines the number of frames in our sprite
+			"stretch_to_lifetime": true // defines the length of our UV animation as being equal to that of the particle's lifetime
+}
+```
+
+The Imagemagick command used to create the sprite on the CI is `convert`, which is the subset of Imagemagick that deals with image manipulation. The command is as follows:
+
+```sh
+convert -append extracted/assets/minecraft/textures/particle/sweep_*.png -define png:format=png8 textures/particle/sweep_attack.png
+```
+
+The `-append` flag is used to join the input images which match the defined globular expression (`.../sweep_*.png`). The image format is defined for safety as by default Imagemagick will attempt to change the color mode of the image to grayscale, which Minecraft will not interpret correctly. The image is then placed in the pack at the defined path.
+
+### Player skin parts
+
+On Java Edition, you are able to toggle your cape and second skin layers. Bedrock Edition does not share this property. We're able to solve this by applying Java's player skin parts mask to the `q.mark_variant` query and checking the visibility with this formula in the player render controller and cape render controller:
+
+```
+math.mod(math.floor(q.mark_variant / 32), 2) != 1
+```
+
+Do note that Geyser does invert the bits - that way, on other servers without the GeyserOptionalPack, `q.mark_variant` being 0 means that all parts should be shown. Java interprets 0 to mean all parts are invisible.
+
+Also note that capes are technically possible to implement without the OptionalPack, but this requires re-sending the skin data to Bedrock Edition which would be costly on performance and network usage.
 
 ### Shulkers
 
